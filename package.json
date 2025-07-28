@@ -1,26 +1,45 @@
 {
-  "name": "linkedin-optimizer-mcp",
-  "version": "0.1.0",
-  "description": "MCP server for LinkedIn profile optimization through compliant content generation",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "name": "linkedin-api-mcp",
+  "version": "1.0.0",
+  "description": "Comprehensive LinkedIn API MCP server exposing ALL LinkedIn API endpoints",
+  "main": "dist/linkedin-api-mcp.js",
+  "types": "dist/linkedin-api-mcp.d.ts",
+  "bin": {
+    "linkedin-api-mcp": "dist/linkedin-api-mcp.js"
+  },
   "scripts": {
     "build": "tsc",
-    "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
+    "dev": "tsx watch src/linkedin-api-mcp.ts",
+    "start": "node dist/linkedin-api-mcp.js",
     "test": "jest",
     "lint": "eslint src --ext ts",
-    "format": "prettier --write \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "clean": "rm -rf dist",
+    "prepare": "npm run build"
   },
   "keywords": [
     "mcp",
     "linkedin",
-    "profile-optimization",
+    "api",
+    "social-media",
+    "marketing",
+    "recruitment",
+    "model-context-protocol",
+    "claude",
     "ai",
-    "model-context-protocol"
+    "oauth",
+    "rest-api"
   ],
   "author": "Marcos Heidemann",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/linkedin-api-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/linkedin-api-mcp/issues"
+  },
+  "homepage": "https://github.com/yourusername/linkedin-api-mcp#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.5.0",
     "zod": "^3.22.4"
@@ -31,11 +50,22 @@
     "@typescript-eslint/parser": "^6.19.0",
     "eslint": "^8.56.0",
     "jest": "^29.7.0",
+    "@types/jest": "^29.5.0",
     "prettier": "^3.2.4",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "files": [
+    "dist/**/*",
+    "docs/**/*",
+    "README.md",
+    "LICENSE",
+    ".env.example"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }
