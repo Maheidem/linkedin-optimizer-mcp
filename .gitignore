@@ -10,9 +10,10 @@ build/
 .env.local
 .env.*.local
 
-# IDE
+# IDE and editors
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 .DS_Store
@@ -23,10 +24,12 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+dev-debug.log
 
 # Testing
 coverage/
 .nyc_output/
+test-results/
 
 # Temporary files
 *.tmp
@@ -35,7 +38,29 @@ coverage/
 
 # OS files
 Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# LinkedIn API credentials (if any)
-config/credentials.json
-config/*.key
+# LinkedIn API credentials and tokens
+configs/credentials.json
+configs/*.key
+configs/local-*.json
+~/.linkedin-mcp/tokens/
+.linkedin-tokens/
+
+# Development tools
+.claude/
+.taskmaster/
+.documentation/
+
+# Local configuration overrides
+configs/local.json
+mcp-config.local.json
+
+# Backup files
+*.bak
+*.backup
+*~ 
