@@ -50,6 +50,27 @@ class LinkedInMCPInstaller {
     homeDir = os.homedir();
     tokenDir = path.join(this.homeDir, '.linkedin-mcp', 'tokens');
     getClaudeConfigPath() {
+        // Check if we're running inside Claude Code by looking for environment variables or process context
+        const claudeCodeConfig = path.join(this.homeDir, '.claude.json');
+        // Always prefer Claude Code config if it exists and has content
+        if (fs.existsSync(claudeCodeConfig)) {
+            try {
+                const stats = fs.statSync(claudeCodeConfig);
+                if (stats.size > 100) { // Config file has some content
+                    return claudeCodeConfig;
+                }
+            }
+            catch (error) {
+                // Ignore error, fall through to Claude Desktop
+            }
+        }
+        // Check if Claude Code is likely being used (look for .claude directory or other indicators)
+        const claudeDir = path.join(this.homeDir, '.claude');
+        if (fs.existsSync(claudeDir) || process.env.CLAUDE_CONFIG_DIR) {
+            // Force creation of Claude Code config
+            return claudeCodeConfig;
+        }
+        // Fall back to Claude Desktop config
         const platform = os.platform();
         switch (platform) {
             case 'darwin': // macOS
@@ -72,7 +93,14 @@ class LinkedInMCPInstaller {
         try {
             if (await fs.pathExists(configPath)) {
                 const content = await fs.readFile(configPath, 'utf-8');
-                return JSON.parse(content);
+                const fullConfig = JSON.parse(content);
+                // If this is Claude Code config (.claude.json), extract or create mcpServers section
+                if (configPath.endsWith('.claude.json')) {
+                    return fullConfig; // Return full config for Claude Code
+                }
+                else {
+                    return fullConfig; // Return as-is for Claude Desktop
+                }
             }
         }
         catch (error) {
@@ -113,12 +141,13 @@ class LinkedInMCPInstaller {
             // 3. Add MCP server configuration
             spinner.text = 'Configuring MCP server...';
             const serverPath = this.getServerPath();
+            const configPath = this.getClaudeConfigPath();
             if (!config.mcpServers) {
                 config.mcpServers = {};
             }
             config.mcpServers['linkedin-complete'] = {
-                command: 'node',
-                args: [serverPath],
+                command: 'npx',
+                args: ['-y', '--package=@maheidem/linkedin-mcp', 'linkedin-mcp-server'],
                 env: {
                     LINKEDIN_TOKEN_STORAGE_PATH: this.tokenDir
                 }

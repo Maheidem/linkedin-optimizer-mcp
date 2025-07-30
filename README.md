@@ -254,10 +254,31 @@ npm install
 npm run build
 ```
 
-### Testing
+### Testing & Examples
 ```bash
+# Run unit tests
 npm test
-npm run dev  # Development mode
+
+# Run example scripts
+npm run test:examples
+npm run test:oauth
+
+# Try the demo
+npm run demo
+
+# Development mode
+npm run dev
+```
+
+### Project Structure
+```
+├── src/                    # TypeScript source code
+├── dist/                   # Compiled JavaScript
+├── examples/               # Usage examples and demos
+├── tests/                  # Test files
+├── docs/                   # Documentation
+├── configs/                # Configuration templates
+└── .github/workflows/      # CI/CD workflows
 ```
 
 ## 📄 License

@@ -292,38 +292,64 @@ server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     const toolArgs = (args || {});
     try {
+        let result;
         switch (name) {
             case 'linkedin_get_auth_url':
-                return getAuthUrl(toolArgs);
+                result = getAuthUrl(toolArgs);
+                break;
             case 'linkedin_exchange_code':
-                return exchangeCode(toolArgs);
+                result = await exchangeCode(toolArgs);
+                break;
             case 'linkedin_get_user_info':
-                return getUserInfo(toolArgs);
+                result = await getUserInfo(toolArgs);
+                break;
             case 'linkedin_create_post':
-                return createPost(toolArgs);
+                result = await createPost(toolArgs);
+                break;
             case 'linkedin_create_optimized_post':
-                return createOptimizedPost(toolArgs);
+                result = await createOptimizedPost(toolArgs);
+                break;
             case 'linkedin_analyze_profile_from_data':
-                return analyzeProfileFromData(toolArgs);
+                result = analyzeProfileFromData(toolArgs);
+                break;
             case 'linkedin_generate_optimized_content':
-                return generateOptimizedContent(toolArgs);
+                result = generateOptimizedContent(toolArgs);
+                break;
             case 'linkedin_post_profile_update':
-                return postProfileUpdate(toolArgs);
+                result = await postProfileUpdate(toolArgs);
+                break;
             case 'linkedin_get_user_posts':
-                return getUserPosts(toolArgs);
+                result = await getUserPosts(toolArgs);
+                break;
             case 'linkedin_get_feed':
-                return getFeed(toolArgs);
+                result = await getFeed(toolArgs);
+                break;
             case 'linkedin_get_post_details':
-                return getPostDetails(toolArgs);
+                result = await getPostDetails(toolArgs);
+                break;
             case 'linkedin_get_post_comments':
-                return getPostComments(toolArgs);
+                result = await getPostComments(toolArgs);
+                break;
             case 'linkedin_get_user_activity':
-                return getUserActivity(toolArgs);
+                result = await getUserActivity(toolArgs);
+                break;
             default:
                 throw new types_js_1.McpError(types_js_1.ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
         }
+        // Return result in proper MCP format
+        return {
+            content: [
+                {
+                    type: 'text',
+                    text: JSON.stringify(result, null, 2)
+                }
+            ]
+        };
     }
     catch (error) {
+        console.error('DEBUG - Exception in request handler:', error);
+        console.error('DEBUG - Error type:', typeof error);
+        console.error('DEBUG - Error instanceof Error:', error instanceof Error);
         if (error instanceof types_js_1.McpError)
             throw error;
         throw new types_js_1.McpError(types_js_1.ErrorCode.InternalError, `Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -351,7 +377,9 @@ function getAuthUrl(args) {
     };
 }
 async function exchangeCode(args) {
+    console.error('DEBUG - exchangeCode called with args:', JSON.stringify(args, null, 2));
     const { code } = args;
+    console.error('DEBUG - Extracted code:', code);
     const params = new URLSearchParams({
         grant_type: 'authorization_code',
         code,
@@ -359,6 +387,8 @@ async function exchangeCode(args) {
         client_id: config.clientId,
         client_secret: config.clientSecret,
     });
+    console.error('DEBUG - Request params:', params.toString());
+    console.error('DEBUG - Making request to LinkedIn...');
     const response = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
         method: 'POST',
         headers: {
@@ -367,17 +397,33 @@ async function exchangeCode(args) {
         },
         body: params,
     });
+    console.error('DEBUG - Response status:', response.status);
+    console.error('DEBUG - Response ok:', response.ok);
     if (!response.ok) {
-        throw new Error(`Token exchange failed: ${response.status}`);
+        const errorText = await response.text();
+        console.error('DEBUG - Error response text:', errorText);
+        return {
+            error: true,
+            status: response.status,
+            message: `Token exchange failed: ${response.status} - ${errorText}`,
+            details: errorText
+        };
     }
     const tokenData = await response.json();
-    return {
+    // Debug logging
+    console.error('DEBUG - Token response:', JSON.stringify(tokenData, null, 2));
+    if (!tokenData.access_token) {
+        throw new Error(`Invalid token response: ${JSON.stringify(tokenData)}`);
+    }
+    const result = {
         access_token: tokenData.access_token,
         expires_in: tokenData.expires_in,
         scope: tokenData.scope,
         message: 'Token obtained successfully! You can now create LinkedIn posts!',
         expiresAt: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString()
     };
+    console.error('DEBUG - Final result:', JSON.stringify(result, null, 2));
+    return result;
 }
 async function getUserInfo(args) {
     const { accessToken } = args;

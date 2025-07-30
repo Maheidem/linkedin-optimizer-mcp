@@ -1,23 +1,28 @@
 {
   "name": "@maheidem/linkedin-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Comprehensive LinkedIn API MCP server with automatic Claude configuration",
   "main": "dist/linkedin-complete-mcp.js",
-  "types": "dist/linkedin-complete-mcp.d.ts",
   "bin": {
     "linkedin-mcp": "dist/cli.js",
     "linkedin-mcp-server": "dist/linkedin-complete-mcp.js"
   },
+  "types": "dist/linkedin-complete-mcp.d.ts",
   "scripts": {
     "build": "tsc && chmod +x dist/cli.js dist/linkedin-complete-mcp.js",
     "dev": "tsx watch src/linkedin-complete-mcp.ts",
     "start": "node dist/linkedin-complete-mcp.js",
     "install-mcp": "node dist/cli.js install",
     "test": "jest",
+    "test:examples": "node tests/test-all-linkedin-functions.js",
+    "test:oauth": "node examples/linkedin-oauth-debug.js",
     "lint": "eslint src --ext ts",
     "format": "prettier --write \"src/**/*.ts\"",
+    "type-check": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "demo": "node examples/linkedin-mcp-demo.js",
+    "auth-setup": "node examples/get-linkedin-auth-url.js"
   },
   "keywords": [
     "mcp",
@@ -70,6 +75,8 @@
   "files": [
     "dist/**/*",
     "docs/**/*",
+    "examples/**/*",
+    "configs/**/*",
     "templates/**/*",
     "README.md",
     "INSTALL.md",
