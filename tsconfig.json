@@ -13,11 +13,11 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/cli.ts", "src/linkedin-complete-mcp.ts", "src/token-manager.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

@@ -1,16 +1,18 @@
 {
-  "name": "linkedin-api-mcp",
+  "name": "@maheidem/linkedin-mcp",
   "version": "1.0.0",
-  "description": "Comprehensive LinkedIn API MCP server exposing ALL LinkedIn API endpoints",
-  "main": "dist/linkedin-api-mcp.js",
-  "types": "dist/linkedin-api-mcp.d.ts",
+  "description": "Comprehensive LinkedIn API MCP server with automatic Claude configuration",
+  "main": "dist/linkedin-complete-mcp.js",
+  "types": "dist/linkedin-complete-mcp.d.ts",
   "bin": {
-    "linkedin-api-mcp": "dist/linkedin-api-mcp.js"
+    "linkedin-mcp": "dist/cli.js",
+    "linkedin-mcp-server": "dist/linkedin-complete-mcp.js"
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsx watch src/linkedin-api-mcp.ts",
-    "start": "node dist/linkedin-api-mcp.js",
+    "build": "tsc && chmod +x dist/cli.js dist/linkedin-complete-mcp.js",
+    "dev": "tsx watch src/linkedin-complete-mcp.ts",
+    "start": "node dist/linkedin-complete-mcp.js",
+    "install-mcp": "node dist/cli.js install",
     "test": "jest",
     "lint": "eslint src --ext ts",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -42,10 +44,17 @@
   "homepage": "https://github.com/yourusername/linkedin-api-mcp#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.5.0",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "commander": "^11.1.0",
+    "chalk": "^5.3.0",
+    "inquirer": "^9.2.12",
+    "ora": "^7.0.1",
+    "fs-extra": "^11.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/inquirer": "^9.0.7",
+    "@types/fs-extra": "^11.0.4",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
     "eslint": "^8.56.0",
@@ -61,9 +70,11 @@
   "files": [
     "dist/**/*",
     "docs/**/*",
+    "templates/**/*",
     "README.md",
-    "LICENSE",
-    ".env.example"
+    "INSTALL.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "publishConfig": {
     "access": "public"

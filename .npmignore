@@ -1,0 +1,54 @@
+# Source files
+src/
+tsconfig*.json
+*.ts
+
+# Development files
+.env*
+.vscode/
+.idea/
+
+# Testing
+test*
+jest.config.js
+coverage/
+
+# Build artifacts
+node_modules/
+.npm/
+dist/test-*
+
+# Documentation development
+research/
+*.md
+!README.md
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Development scripts
+example-*.js
+check-*.js
+exchange-*.js
+test-*.js
+post-to-linkedin.js
+
+# Config examples
+mcp-config.json
+
+# Project-specific
+linkedin-mcp-hybrid-plan.md
+linkedin-profile-updates.md
+CLAUDE.md
+LINKEDIN_READ_CAPABILITIES.md
+
+# Keep only essential files for npm package

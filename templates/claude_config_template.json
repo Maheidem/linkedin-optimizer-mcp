@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "linkedin-complete": {
+      "command": "node",
+      "args": ["{{SERVER_PATH}}"],
+      "env": {
+        "LINKEDIN_TOKEN_STORAGE_PATH": "{{TOKEN_STORAGE_PATH}}"
+      }
+    }
+  }
+}
