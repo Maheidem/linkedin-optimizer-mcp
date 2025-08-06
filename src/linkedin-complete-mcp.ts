@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Complete LinkedIn API MCP Server
- * NOW WITH WORKING POST CREATION!
+ * NOW WITH WORKING POST CREATION AND TOKEN PERSISTENCE!
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -12,6 +12,10 @@ import {
   ListToolsRequestSchema,
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
+import { tokenManager } from './token-manager.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 // Type definitions for API responses
 interface LinkedInTokenResponse {
@@ -99,11 +103,38 @@ const server = new Server(
   }
 );
 
-// Configuration
-const config = {
-  clientId: '77dvmuotbmd8gx',
-  clientSecret: 'WPL_AP1.w8905sdXttgXXHCV.pZR0rg==',
-  redirectUri: 'http://localhost:3000/callback',
+// Load configuration from stored credentials or environment
+async function loadConfig() {
+  const homeDir = os.homedir();
+  const credentialsPath = path.join(homeDir, '.linkedin-mcp', 'tokens', 'credentials.json');
+  
+  try {
+    // Try to load from stored credentials file first
+    if (fs.existsSync(credentialsPath)) {
+      const creds = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
+      return {
+        clientId: creds.clientId || process.env.LINKEDIN_CLIENT_ID || '',
+        clientSecret: creds.clientSecret || process.env.LINKEDIN_CLIENT_SECRET || '',
+        redirectUri: creds.redirectUri || 'http://localhost:3000/callback'
+      };
+    }
+  } catch (error) {
+    console.error('Error loading credentials:', error);
+  }
+  
+  // Fallback to environment variables or defaults
+  return {
+    clientId: process.env.LINKEDIN_CLIENT_ID || '77dvmuotbmd8gx',
+    clientSecret: process.env.LINKEDIN_CLIENT_SECRET || 'WPL_AP1.w8905sdXttgXXHCV.pZR0rg==',
+    redirectUri: process.env.LINKEDIN_REDIRECT_URI || 'http://localhost:3000/callback'
+  };
+}
+
+// Global config object
+let config = {
+  clientId: '',
+  clientSecret: '',
+  redirectUri: 'http://localhost:3000/callback'
 };
 
 // Complete tools including WORKING post creation
@@ -135,9 +166,9 @@ const COMPLETE_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        accessToken: { type: 'string', description: 'LinkedIn access token' }
+        accessToken: { type: 'string', description: 'LinkedIn access token (optional if token is stored)' }
       },
-      required: ['accessToken']
+      required: []
     }
   },
   {
@@ -160,7 +191,7 @@ const COMPLETE_TOOLS = [
           description: 'Post visibility (default: PUBLIC)'
         }
       },
-      required: ['accessToken', 'text']
+      required: ['text']
     }
   },
   {
@@ -169,7 +200,7 @@ const COMPLETE_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        accessToken: { type: 'string', description: 'LinkedIn access token' },
+        accessToken: { type: 'string', description: 'LinkedIn access token (optional if token is stored)' },
         topic: { type: 'string', description: 'Post topic or theme' },
         role: { type: 'string', description: 'Your professional role' },
         industry: { type: 'string', description: 'Your industry' },
@@ -181,7 +212,7 @@ const COMPLETE_TOOLS = [
         includeHashtags: { type: 'boolean', description: 'Include relevant hashtags' },
         includeQuestion: { type: 'boolean', description: 'Include engagement question' }
       },
-      required: ['accessToken', 'topic', 'role']
+      required: ['topic', 'role']
     }
   },
   {
@@ -242,7 +273,7 @@ const COMPLETE_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        accessToken: { type: 'string', description: 'LinkedIn access token' },
+        accessToken: { type: 'string', description: 'LinkedIn access token (optional if token is stored)' },
         updateType: {
           type: 'string',
           enum: ['new_role', 'skill_certification', 'achievement', 'general_update'],
@@ -250,7 +281,7 @@ const COMPLETE_TOOLS = [
         },
         details: { type: 'string', description: 'Details about the update' }
       },
-      required: ['accessToken', 'updateType', 'details']
+      required: ['updateType', 'details']
     }
   },
   {
@@ -259,7 +290,7 @@ const COMPLETE_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        accessToken: { type: 'string', description: 'LinkedIn access token' },
+        accessToken: { type: 'string', description: 'LinkedIn access token (optional if token is stored)' },
         count: { 
           type: 'number', 
           description: 'Number of posts to retrieve (default: 10, max: 50)',
@@ -272,7 +303,7 @@ const COMPLETE_TOOLS = [
           minimum: 0
         }
       },
-      required: ['accessToken']
+      required: []
     }
   },
   {
@@ -281,7 +312,7 @@ const COMPLETE_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        accessToken: { type: 'string', description: 'LinkedIn access token' },
+        accessToken: { type: 'string', description: 'LinkedIn access token (optional if token is stored)' },
         count: { 
           type: 'number', 
           description: 'Number of posts to retrieve (default: 10, max: 50)',
@@ -294,7 +325,7 @@ const COMPLETE_TOOLS = [
           minimum: 0
         }
       },
-      required: ['accessToken']
+      required: []
     }
   },
   {
@@ -303,14 +334,14 @@ const COMPLETE_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        accessToken: { type: 'string', description: 'LinkedIn access token' },
+        accessToken: { type: 'string', description: 'LinkedIn access token (optional if token is stored)' },
         postId: { type: 'string', description: 'LinkedIn post/share ID' },
         includeStats: { 
           type: 'boolean', 
           description: 'Include engagement statistics (default: true)' 
         }
       },
-      required: ['accessToken', 'postId']
+      required: ['postId']
     }
   },
   {
@@ -319,7 +350,7 @@ const COMPLETE_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        accessToken: { type: 'string', description: 'LinkedIn access token' },
+        accessToken: { type: 'string', description: 'LinkedIn access token (optional if token is stored)' },
         postId: { type: 'string', description: 'LinkedIn post/share ID' },
         count: { 
           type: 'number', 
@@ -333,7 +364,7 @@ const COMPLETE_TOOLS = [
           minimum: 0
         }
       },
-      required: ['accessToken', 'postId']
+      required: ['postId']
     }
   },
   {
@@ -342,7 +373,7 @@ const COMPLETE_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        accessToken: { type: 'string', description: 'LinkedIn access token' },
+        accessToken: { type: 'string', description: 'LinkedIn access token (optional if token is stored)' },
         activityTypes: {
           type: 'array',
           items: {
@@ -363,7 +394,15 @@ const COMPLETE_TOOLS = [
           minimum: 0
         }
       },
-      required: ['accessToken']
+      required: []
+    }
+  },
+  {
+    name: 'linkedin_check_token_status',
+    description: '🔐 Check stored token status and validity',
+    inputSchema: {
+      type: 'object',
+      properties: {}
     }
   }
 ];
@@ -420,6 +459,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'linkedin_get_user_activity':
         result = await getUserActivity(toolArgs);
         break;
+      case 'linkedin_check_token_status':
+        result = await checkTokenStatus();
+        break;
       default:
         throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
     }
@@ -442,6 +484,65 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     throw new McpError(ErrorCode.InternalError, `Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 });
+
+// Helper function to check token status
+async function checkTokenStatus() {
+  const tokenInfo = await tokenManager.getTokenInfo();
+  
+  // Try to get user info if token exists and is valid
+  let userInfo = null;
+  if (tokenInfo.valid) {
+    try {
+      const accessToken = await tokenManager.getAccessToken();
+      if (accessToken) {
+        const response = await fetch('https://api.linkedin.com/v2/userinfo', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          userInfo = await response.json();
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+    }
+  }
+  
+  return {
+    tokenStatus: tokenInfo,
+    authenticated: tokenInfo.valid,
+    user: userInfo,
+    message: tokenInfo.valid 
+      ? `Token is valid and will expire in ${tokenInfo.expiresIn}` 
+      : tokenInfo.exists 
+        ? 'Token exists but is expired or invalid. Please re-authenticate.'
+        : 'No token found. Please authenticate using linkedin_get_auth_url and linkedin_exchange_code.',
+    nextSteps: tokenInfo.valid
+      ? ['You can now use all LinkedIn API functions without providing an access token']
+      : [
+          'Use linkedin_get_auth_url to get authorization URL',
+          'Open the URL in a browser and authorize',
+          'Use linkedin_exchange_code with the authorization code'
+        ]
+  };
+}
+
+// Helper function to get access token
+async function getAccessToken(args: ToolArgs): Promise<string> {
+  let { accessToken } = args;
+  
+  if (!accessToken) {
+    accessToken = await tokenManager.getAccessToken();
+    if (!accessToken) {
+      throw new Error('No access token provided and no stored token found. Please authenticate first using linkedin_get_auth_url and linkedin_exchange_code.');
+    }
+  }
+  
+  return accessToken;
+}
 
 // Tool implementations
 function getAuthUrl(args: ToolArgs) {
@@ -516,12 +617,22 @@ async function exchangeCode(args: ToolArgs) {
     throw new Error(`Invalid token response: ${JSON.stringify(tokenData)}`);
   }
   
+  // Save token to persistent storage
+  await tokenManager.saveToken({
+    access_token: tokenData.access_token,
+    expires_in: tokenData.expires_in,
+    scope: tokenData.scope,
+    token_type: tokenData.token_type,
+    created_at: Date.now()
+  });
+  
   const result = {
     access_token: tokenData.access_token,
     expires_in: tokenData.expires_in,
     scope: tokenData.scope,
-    message: 'Token obtained successfully! You can now create LinkedIn posts!',
-    expiresAt: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString()
+    message: 'Token obtained and saved successfully! You can now create LinkedIn posts!',
+    expiresAt: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+    storagePath: process.env.LINKEDIN_TOKEN_STORAGE_PATH || '~/.linkedin-mcp/tokens'
   };
   
   console.error('DEBUG - Final result:', JSON.stringify(result, null, 2));
@@ -529,7 +640,7 @@ async function exchangeCode(args: ToolArgs) {
 }
 
 async function getUserInfo(args: ToolArgs) {
-  const { accessToken } = args;
+  const accessToken = await getAccessToken(args);
   
   const response = await fetch('https://api.linkedin.com/v2/userinfo', {
     headers: {
@@ -559,7 +670,8 @@ async function getUserInfo(args: ToolArgs) {
 }
 
 async function createPost(args: ToolArgs) {
-  const { accessToken, text, visibility = 'PUBLIC' } = args;
+  const accessToken = await getAccessToken(args);
+  const { text, visibility = 'PUBLIC' } = args;
   
   // Get user ID first
   const userResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
@@ -623,8 +735,8 @@ async function createPost(args: ToolArgs) {
 }
 
 async function createOptimizedPost(args: ToolArgs) {
+  const accessToken = await getAccessToken(args);
   const { 
-    accessToken, 
     topic, 
     role, 
     industry, 
@@ -720,7 +832,8 @@ function generateHashtags(topic: string, role: string, industry: string): string
 }
 
 async function postProfileUpdate(args: ToolArgs) {
-  const { accessToken, updateType, details } = args;
+  const accessToken = await getAccessToken(args);
+  const { updateType, details } = args;
   
   const updateMessages = {
     new_role: `🚀 Excited to share that I've started a new role! ${details}`,
@@ -739,7 +852,8 @@ async function postProfileUpdate(args: ToolArgs) {
 }
 
 async function getUserPosts(args: ToolArgs) {
-  const { accessToken, count = 10, start = 0 } = args;
+  const accessToken = await getAccessToken(args);
+  const { count = 10, start = 0 } = args;
   
   // Get user ID first
   const userResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
@@ -804,7 +918,8 @@ async function getUserPosts(args: ToolArgs) {
 }
 
 async function getFeed(args: ToolArgs) {
-  const { accessToken, count = 10, start = 0 } = args;
+  const accessToken = await getAccessToken(args);
+  const { count = 10, start = 0 } = args;
   
   // LinkedIn Feed API is limited - using shares with different filtering
   const queryParams = new URLSearchParams({
@@ -852,7 +967,8 @@ async function getFeed(args: ToolArgs) {
 }
 
 async function getPostDetails(args: ToolArgs) {
-  const { accessToken, postId, includeStats = true } = args;
+  const accessToken = await getAccessToken(args);
+  const { postId, includeStats = true } = args;
   
   // Get specific post details
   const response = await fetch(`https://api.linkedin.com/v2/shares/${encodeURIComponent(postId)}`, {
@@ -895,7 +1011,8 @@ async function getPostDetails(args: ToolArgs) {
 }
 
 async function getPostComments(args: ToolArgs) {
-  const { accessToken, postId, count = 10, start = 0 } = args;
+  const accessToken = await getAccessToken(args);
+  const { postId, count = 10, start = 0 } = args;
   
   // Convert postId to proper URN format for comments
   const shareUrn = postId.startsWith('urn:li:share:') ? postId : `urn:li:share:${postId}`;
@@ -942,7 +1059,8 @@ async function getPostComments(args: ToolArgs) {
 }
 
 async function getUserActivity(args: ToolArgs) {
-  const { accessToken, activityTypes = ['LIKE', 'COMMENT', 'SHARE', 'REACTION'], count = 20, start = 0 } = args;
+  const accessToken = await getAccessToken(args);
+  const { activityTypes = ['LIKE', 'COMMENT', 'SHARE', 'REACTION'], count = 20, start = 0 } = args;
   
   // Get user ID first
   const userResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
@@ -1155,6 +1273,12 @@ function getContentTips(contentType: string): string[] {
 
 // Start the server
 async function main() {
+  // Load configuration
+  config = await loadConfig();
+  
+  // Initialize token manager
+  await tokenManager.init();
+  
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('LinkedIn Complete MCP server running on stdio');

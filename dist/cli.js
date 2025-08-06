@@ -157,12 +157,26 @@ class LinkedInMCPInstaller {
             await this.saveClaudeConfig(config);
             spinner.succeed('LinkedIn MCP server installed successfully!');
             console.log(chalk_1.default.green('\n✅ Installation complete!'));
-            console.log(chalk_1.default.blue('\n📝 Next steps:'));
-            console.log('1. Restart Claude Desktop/Code to load the new MCP server');
-            console.log('2. Run authentication: linkedin-mcp auth');
-            console.log('3. Test the installation: linkedin-mcp status');
-            console.log(`\n📁 Token storage location: ${this.tokenDir}`);
-            console.log(`📄 Claude config location: ${this.getClaudeConfigPath()}`);
+            // Ask if user wants to authenticate now
+            const { doAuth } = await inquirer_1.default.prompt([{
+                    type: 'confirm',
+                    name: 'doAuth',
+                    message: '\nWould you like to complete LinkedIn authentication now?',
+                    default: true
+                }]);
+            if (doAuth) {
+                await this.auth();
+                console.log(chalk_1.default.green('\n🎉 All done! You are fully set up.'));
+                console.log(chalk_1.default.blue('\nJust restart Claude and you can use LinkedIn features immediately!'));
+            }
+            else {
+                console.log(chalk_1.default.blue('\n📝 Next steps:'));
+                console.log('1. Run authentication: linkedin-mcp auth');
+                console.log('2. Restart Claude Desktop/Code');
+                console.log('3. Test the installation: linkedin-mcp status');
+            }
+            console.log(chalk_1.default.dim(`\n📁 Token storage: ${this.tokenDir}`));
+            console.log(chalk_1.default.dim(`📄 Claude config: ${this.getClaudeConfigPath()}`));
         }
         catch (error) {
             spinner.fail('Installation failed');
@@ -251,40 +265,19 @@ class LinkedInMCPInstaller {
         }
     }
     async auth() {
-        console.log(chalk_1.default.blue('🔐 LinkedIn OAuth Setup\n'));
-        console.log('To authenticate with LinkedIn, you need to:');
-        console.log('1. Create a LinkedIn app at https://www.linkedin.com/developers/');
-        console.log('2. Add your redirect URI (e.g., http://localhost:3000/callback)');
-        console.log('3. Get your Client ID and Client Secret');
-        console.log('4. Follow the OAuth flow to get an access token\n');
-        const { clientId, clientSecret } = await inquirer_1.default.prompt([
-            {
-                type: 'input',
-                name: 'clientId',
-                message: 'Enter your LinkedIn Client ID:',
-                validate: (input) => input.trim().length > 0 || 'Client ID is required'
-            },
-            {
-                type: 'password',
-                name: 'clientSecret',
-                message: 'Enter your LinkedIn Client Secret:',
-                validate: (input) => input.trim().length > 0 || 'Client Secret is required'
-            }
-        ]);
-        // Save credentials
-        const credentialsPath = path.join(this.tokenDir, 'credentials.json');
-        await fs.ensureDir(this.tokenDir);
-        await fs.writeFile(credentialsPath, JSON.stringify({
-            clientId: clientId.trim(),
-            clientSecret: clientSecret.trim(),
-            createdAt: new Date().toISOString()
-        }, null, 2));
-        console.log(chalk_1.default.green('\n✅ Credentials saved!'));
-        console.log(`📁 Location: ${credentialsPath}`);
-        console.log('\n📝 Next steps:');
-        console.log('1. Use the LinkedIn OAuth flow to get an access token');
-        console.log('2. The MCP server will use these credentials for token refresh');
-        console.log('3. Test your setup with: linkedin-mcp status');
+        // Use the comprehensive OAuth setup that handles everything
+        const { OAuthSetup } = await Promise.resolve().then(() => __importStar(require('./oauth-setup.js')));
+        const setup = new OAuthSetup();
+        const success = await setup.setup();
+        if (!success) {
+            console.error(chalk_1.default.red('\n❌ OAuth setup failed'));
+            console.error(chalk_1.default.yellow('Please check your credentials and try again.'));
+            process.exit(1);
+        }
+        console.log(chalk_1.default.green('\n✨ OAuth setup complete!'));
+        console.log(chalk_1.default.green('You are now fully authenticated with LinkedIn.'));
+        console.log(chalk_1.default.cyan('\n✅ No further authentication steps needed!'));
+        console.log(chalk_1.default.cyan('The MCP server will automatically use your stored token.'));
     }
     async postinstall() {
         // Silent post-install setup

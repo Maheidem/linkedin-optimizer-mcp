@@ -1,31 +1,54 @@
 interface TokenData {
     access_token: string;
-    expires_at: string;
+    expires_in?: number;
+    scope?: string;
+    token_type?: string;
+    created_at?: number;
     refresh_token?: string;
-    scope: string;
-    encrypted?: boolean;
-}
-interface StoredTokenData extends TokenData {
-    created_at: string;
-    last_used?: string;
 }
 export declare class TokenManager {
-    private tokenFilePath;
-    private encryptionKey?;
-    constructor(customPath?: string);
-    private ensureDirectory;
-    private encrypt;
-    private decrypt;
+    private tokenDir;
+    private tokenFile;
+    private tokenCache;
+    constructor();
+    /**
+     * Initialize token storage directory
+     */
+    init(): Promise<void>;
+    /**
+     * Save token to persistent storage
+     */
     saveToken(tokenData: TokenData): Promise<void>;
-    getToken(): Promise<StoredTokenData | null>;
+    /**
+     * Load token from persistent storage
+     */
+    loadToken(): Promise<TokenData | null>;
+    /**
+     * Get access token string
+     */
+    getAccessToken(): Promise<string | null>;
+    /**
+     * Check if token is valid (not expired)
+     */
+    private isTokenValid;
+    /**
+     * Clear stored token
+     */
     clearToken(): Promise<void>;
-    hasValidToken(): Promise<boolean>;
-    getTokenExpiryInfo(): Promise<{
-        isValid: boolean;
-        expiresAt?: Date;
-        timeRemaining?: string;
-    } | null>;
-    static generateEncryptionKey(): string;
+    /**
+     * Check if token exists (without validating)
+     */
+    hasToken(): Promise<boolean>;
+    /**
+     * Get token info for debugging
+     */
+    getTokenInfo(): Promise<{
+        exists: boolean;
+        valid: boolean;
+        path: string;
+        expiresIn?: string;
+    }>;
 }
+export declare const tokenManager: TokenManager;
 export {};
 //# sourceMappingURL=token-manager.d.ts.map
