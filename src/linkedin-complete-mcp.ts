@@ -13,6 +13,9 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import { tokenManager } from './token-manager.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 // Type definitions for API responses
 interface LinkedInTokenResponse {
@@ -100,11 +103,38 @@ const server = new Server(
   }
 );
 
-// Configuration
-const config = {
-  clientId: '77dvmuotbmd8gx',
-  clientSecret: 'WPL_AP1.w8905sdXttgXXHCV.pZR0rg==',
-  redirectUri: 'http://localhost:3000/callback',
+// Load configuration from stored credentials or environment
+async function loadConfig() {
+  const homeDir = os.homedir();
+  const credentialsPath = path.join(homeDir, '.linkedin-mcp', 'tokens', 'credentials.json');
+  
+  try {
+    // Try to load from stored credentials file first
+    if (fs.existsSync(credentialsPath)) {
+      const creds = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
+      return {
+        clientId: creds.clientId || process.env.LINKEDIN_CLIENT_ID || '',
+        clientSecret: creds.clientSecret || process.env.LINKEDIN_CLIENT_SECRET || '',
+        redirectUri: creds.redirectUri || 'http://localhost:3000/callback'
+      };
+    }
+  } catch (error) {
+    console.error('Error loading credentials:', error);
+  }
+  
+  // Fallback to environment variables or defaults
+  return {
+    clientId: process.env.LINKEDIN_CLIENT_ID || '77dvmuotbmd8gx',
+    clientSecret: process.env.LINKEDIN_CLIENT_SECRET || 'WPL_AP1.w8905sdXttgXXHCV.pZR0rg==',
+    redirectUri: process.env.LINKEDIN_REDIRECT_URI || 'http://localhost:3000/callback'
+  };
+}
+
+// Global config object
+let config = {
+  clientId: '',
+  clientSecret: '',
+  redirectUri: 'http://localhost:3000/callback'
 };
 
 // Complete tools including WORKING post creation
@@ -1243,6 +1273,12 @@ function getContentTips(contentType: string): string[] {
 
 // Start the server
 async function main() {
+  // Load configuration
+  config = await loadConfig();
+  
+  // Initialize token manager
+  await tokenManager.init();
+  
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('LinkedIn Complete MCP server running on stdio');

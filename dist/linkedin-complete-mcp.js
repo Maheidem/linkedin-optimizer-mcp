@@ -4,11 +4,47 @@
  * Complete LinkedIn API MCP Server
  * NOW WITH WORKING POST CREATION AND TOKEN PERSISTENCE!
  */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 const index_js_1 = require("@modelcontextprotocol/sdk/server/index.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const types_js_1 = require("@modelcontextprotocol/sdk/types.js");
 const token_manager_js_1 = require("./token-manager.js");
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
+const os = __importStar(require("os"));
 const server = new index_js_1.Server({
     name: 'linkedin-complete-mcp',
     version: '1.0.0',
@@ -17,11 +53,36 @@ const server = new index_js_1.Server({
         tools: {},
     },
 });
-// Configuration
-const config = {
-    clientId: '77dvmuotbmd8gx',
-    clientSecret: 'WPL_AP1.w8905sdXttgXXHCV.pZR0rg==',
-    redirectUri: 'http://localhost:3000/callback',
+// Load configuration from stored credentials or environment
+async function loadConfig() {
+    const homeDir = os.homedir();
+    const credentialsPath = path.join(homeDir, '.linkedin-mcp', 'tokens', 'credentials.json');
+    try {
+        // Try to load from stored credentials file first
+        if (fs.existsSync(credentialsPath)) {
+            const creds = JSON.parse(fs.readFileSync(credentialsPath, 'utf-8'));
+            return {
+                clientId: creds.clientId || process.env.LINKEDIN_CLIENT_ID || '',
+                clientSecret: creds.clientSecret || process.env.LINKEDIN_CLIENT_SECRET || '',
+                redirectUri: creds.redirectUri || 'http://localhost:3000/callback'
+            };
+        }
+    }
+    catch (error) {
+        console.error('Error loading credentials:', error);
+    }
+    // Fallback to environment variables or defaults
+    return {
+        clientId: process.env.LINKEDIN_CLIENT_ID || '77dvmuotbmd8gx',
+        clientSecret: process.env.LINKEDIN_CLIENT_SECRET || 'WPL_AP1.w8905sdXttgXXHCV.pZR0rg==',
+        redirectUri: process.env.LINKEDIN_REDIRECT_URI || 'http://localhost:3000/callback'
+    };
+}
+// Global config object
+let config = {
+    clientId: '',
+    clientSecret: '',
+    redirectUri: 'http://localhost:3000/callback'
 };
 // Complete tools including WORKING post creation
 const COMPLETE_TOOLS = [
@@ -1039,6 +1100,10 @@ function getContentTips(contentType) {
 }
 // Start the server
 async function main() {
+    // Load configuration
+    config = await loadConfig();
+    // Initialize token manager
+    await token_manager_js_1.tokenManager.init();
     const transport = new stdio_js_1.StdioServerTransport();
     await server.connect(transport);
     console.error('LinkedIn Complete MCP server running on stdio');
