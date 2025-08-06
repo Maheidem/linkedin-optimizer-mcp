@@ -4,6 +4,7 @@
  * backup, and integrity verification capabilities
  */
 
+import { EventEmitter } from 'events';
 import { EncryptedTokenData } from '../security/secure-token-storage';
 
 /**
@@ -96,11 +97,12 @@ export interface StoredTokenMetadata {
  * Abstract secure storage interface
  * Provides contract for secure token storage implementations
  */
-export abstract class SecureStorageInterface {
+export abstract class SecureStorageInterface extends EventEmitter {
   protected config: StorageConfig;
   protected isInitialized: boolean = false;
 
   constructor(config: StorageConfig) {
+    super();
     this.config = config;
   }
 
@@ -214,6 +216,11 @@ export abstract class SecureStorageInterface {
   updateConfig(newConfig: Partial<StorageConfig>): void {
     this.config = { ...this.config, ...newConfig };
   }
+
+  /**
+   * Event handling methods - inherited from EventEmitter
+   * Available: on, emit, removeListener, removeAllListeners, etc.
+   */
 }
 
 /**

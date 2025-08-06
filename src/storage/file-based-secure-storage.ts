@@ -48,7 +48,6 @@ interface StorageIndex {
  * File-based secure storage implementation
  */
 export class FileBasedSecureStorage extends SecureStorageInterface {
-  private eventEmitter: EventEmitter;
   private storageIndex: StorageIndex;
   private indexPath: string;
   private tokensDir: string;
@@ -68,7 +67,6 @@ export class FileBasedSecureStorage extends SecureStorageInterface {
 
   constructor(config: StorageConfig) {
     super(config);
-    this.eventEmitter = new EventEmitter();
     this.indexPath = path.join(config.storageDir, this.INDEX_FILE);
     this.tokensDir = path.join(config.storageDir, this.TOKENS_DIR);
     this.backupDir = config.backupDir || path.join(config.storageDir, this.BACKUP_DIR);
@@ -163,7 +161,7 @@ export class FileBasedSecureStorage extends SecureStorageInterface {
       }
 
       // Clear event listeners
-      this.eventEmitter.removeAllListeners();
+      this.removeAllListeners();
 
       this.isInitialized = false;
 
@@ -1040,19 +1038,9 @@ export class FileBasedSecureStorage extends SecureStorageInterface {
   }
 
   /**
-   * Event handling
+   * Event handling methods - these are inherited from EventEmitter via SecureStorageInterface
+   * No need to override since they're abstract in the parent
    */
-  on(event: StorageEvent, listener: (data: StorageEventData) => void): void {
-    this.eventEmitter.on(event, listener);
-  }
-
-  emit(event: StorageEvent, data: StorageEventData): void {
-    this.eventEmitter.emit(event, data);
-  }
-
-  removeListener(event: StorageEvent, listener: (data: StorageEventData) => void): void {
-    this.eventEmitter.removeListener(event, listener);
-  }
 
   /**
    * Private helper methods

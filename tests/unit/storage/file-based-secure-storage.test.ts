@@ -645,8 +645,8 @@ describe('FileBasedSecureStorage', () => {
       const restoreEvents: any[] = [];
       
       // Clear existing listeners to avoid interference
-      (storage as any).eventEmitter.removeAllListeners(StorageEvent.BACKUP_CREATED);
-      (storage as any).eventEmitter.removeAllListeners(StorageEvent.BACKUP_RESTORED);
+      storage.removeAllListeners(StorageEvent.BACKUP_CREATED);
+      storage.removeAllListeners(StorageEvent.BACKUP_RESTORED);
       
       storage.on(StorageEvent.BACKUP_CREATED, (data) => backupEvents.push(data));
       storage.on(StorageEvent.BACKUP_RESTORED, (data) => restoreEvents.push(data));
