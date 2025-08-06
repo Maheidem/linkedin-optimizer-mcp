@@ -64,3 +64,14 @@ mcp-config.local.json
 *.bak
 *.backup
 *~ 
+
+logs
+# Dependency directories
+# Editor directories and files
+.idea
+.vscode
+# OS specific
+
+# Task files
+# tasks.json
+# tasks/ 

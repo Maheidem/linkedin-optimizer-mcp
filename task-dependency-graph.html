@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn MCP v2 Enhancement - Task Dependency Graph</title>
+    <script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.2/dist/vis-network.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/vis-network@9.1.2/dist/vis-network.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+        .subtitle {
+            margin-top: 10px;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        #mynetwork {
+            width: 100%;
+            height: 800px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .legend {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+        }
+        .legend h3 {
+            margin-top: 0;
+            color: #333;
+            font-size: 1.3em;
+        }
+        .legend-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .legend-box {
+            width: 30px;
+            height: 30px;
+            border-radius: 5px;
+            border: 2px solid #333;
+        }
+        .stats {
+            padding: 20px 30px;
+            background: white;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2575fc;
+        }
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+        .controls {
+            padding: 20px 30px;
+            background: #f0f0f0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 10px 20px;
+            background: #2575fc;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #1a5dcc;
+        }
+        button.active {
+            background: #6a11cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>LinkedIn MCP v2 Enhancement</h1>
+            <div class="subtitle">Task Dependency Graph & Implementation Roadmap</div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">16</div>
+                <div class="stat-label">Total Tasks</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">80+</div>
+                <div class="stat-label">Subtasks</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">4</div>
+                <div class="stat-label">Phases</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">16</div>
+                <div class="stat-label">Weeks Timeline</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button onclick="fitNetwork()">Fit View</button>
+            <button onclick="showPhase(1)" id="phase1">Phase 1</button>
+            <button onclick="showPhase(2)" id="phase2">Phase 2</button>
+            <button onclick="showPhase(3)" id="phase3">Phase 3</button>
+            <button onclick="showPhase(4)" id="phase4">Phase 4</button>
+            <button onclick="showPhase(0)" id="phaseAll" class="active">Show All</button>
+            <button onclick="togglePhysics()">Toggle Physics</button>
+        </div>
+        
+        <div id="mynetwork"></div>
+        
+        <div class="legend">
+            <h3>Legend</h3>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #ff6b6b;"></div>
+                    <span><strong>Phase 1:</strong> Security & API (High Priority)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #4ecdc4;"></div>
+                    <span><strong>Phase 2:</strong> Core Features (Medium Priority)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #45b7d1;"></div>
+                    <span><strong>Phase 3:</strong> Enterprise (High Priority)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #96ceb4;"></div>
+                    <span><strong>Phase 4:</strong> Advanced (Low Priority)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: white; border-style: dashed;"></div>
+                    <span><strong>Dashed Arrow:</strong> Task Dependency</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: white; border-width: 3px;"></div>
+                    <span><strong>Thick Border:</strong> High Complexity (8-9)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box" style="background: #27ae60;"></div>
+                    <span><strong>Green:</strong> Completed Task</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Task data with dependencies
+        const tasks = [
+            // Phase 1: Security & API Modernization (Weeks 1-4)
+            {id: 1, label: "1. OAuth 2.0\nPKCE Flow ✅", title: "Implement OAuth 2.0 PKCE Flow\nComplexity: 8\nSubtasks: 5\nStatus: COMPLETED", group: 1, complexity: 8, phase: 1, priority: "high", completed: true},
+            {id: 2, label: "2. LinkedIn\nAPI v2024", title: "Migrate to LinkedIn API v2024\nComplexity: 7\nSubtasks: 5", group: 1, complexity: 7, phase: 1, priority: "high"},
+            {id: 3, label: "3. Token\nSecurity", title: "Enhance Token Security System\nComplexity: 9\nSubtasks: 6\nDepends on: Task 1", group: 1, complexity: 9, phase: 1, priority: "high"},
+            {id: 4, label: "4. Audit\nSystem", title: "Build Comprehensive Audit System\nComplexity: 7\nSubtasks: 5", group: 1, complexity: 7, phase: 1, priority: "medium"},
+            
+            // Phase 2: Core Feature Enhancement (Weeks 5-8)
+            {id: 5, label: "5. AI Content\nOptimizer", title: "Develop AI Content Optimizer\nComplexity: 8\nSubtasks: 6\nDepends on: Task 2", group: 2, complexity: 8, phase: 2, priority: "medium"},
+            {id: 6, label: "6. Analytics\nDashboard", title: "Create Advanced Analytics Dashboard\nComplexity: 7\nSubtasks: 5\nDepends on: Task 2", group: 2, complexity: 7, phase: 2, priority: "medium"},
+            {id: 7, label: "7. Rate\nLimiting", title: "Implement Intelligent Rate Limiting\nComplexity: 8\nSubtasks: 6\nDepends on: Task 2", group: 2, complexity: 8, phase: 2, priority: "medium"},
+            {id: 8, label: "8. Multi-Account\nManagement", title: "Develop Multi-Account Management\nComplexity: 7\nSubtasks: 5\nDepends on: Tasks 1, 2, 3", group: 2, complexity: 7, phase: 2, priority: "medium"},
+            
+            // Phase 3: Enterprise Features (Weeks 9-12)
+            {id: 9, label: "9. Compliance\nFramework", title: "Build Compliance Framework\nComplexity: 9\nSubtasks: 6\nDepends on: Task 4", group: 3, complexity: 9, phase: 3, priority: "high"},
+            {id: 10, label: "10. Webhook\nIntegration", title: "Create Webhook Integration System\nComplexity: 6\nSubtasks: 4\nDepends on: Task 2", group: 3, complexity: 6, phase: 3, priority: "medium"},
+            {id: 11, label: "11. Batch\nOperations", title: "Implement Batch Operations Framework\nComplexity: 7\nSubtasks: 5\nDepends on: Task 7", group: 3, complexity: 7, phase: 3, priority: "medium"},
+            {id: 12, label: "12. RBAC\nSystem", title: "Develop Role-Based Access Control\nComplexity: 8\nSubtasks: 5\nDepends on: Tasks 4, 8", group: 3, complexity: 8, phase: 3, priority: "high"},
+            
+            // Phase 4: Advanced Capabilities (Weeks 13-16)
+            {id: 13, label: "13. Cross-Platform\nIntegration", title: "Implement Cross-Platform Integration\nComplexity: 9\nSubtasks: 6\nDepends on: Tasks 2, 5, 6", group: 4, complexity: 9, phase: 4, priority: "low"},
+            {id: 14, label: "14. Predictive\nAnalytics", title: "Develop Predictive Analytics System\nComplexity: 9\nSubtasks: 6\nDepends on: Tasks 5, 6", group: 4, complexity: 9, phase: 4, priority: "low"},
+            {id: 15, label: "15. A/B Testing\nFramework", title: "Create A/B Testing Framework\nComplexity: 7\nSubtasks: 5\nDepends on: Tasks 5, 6", group: 4, complexity: 7, phase: 4, priority: "low"},
+            {id: 16, label: "16. Enterprise\nReporting", title: "Build Enterprise Reporting Suite\nComplexity: 6\nSubtasks: 4\nDepends on: Tasks 6, 12", group: 4, complexity: 6, phase: 4, priority: "medium"}
+        ];
+
+        // Dependencies
+        const dependencies = [
+            {from: 1, to: 3},
+            {from: 2, to: 5},
+            {from: 2, to: 6},
+            {from: 2, to: 7},
+            {from: 1, to: 8},
+            {from: 2, to: 8},
+            {from: 3, to: 8},
+            {from: 4, to: 9},
+            {from: 2, to: 10},
+            {from: 7, to: 11},
+            {from: 4, to: 12},
+            {from: 8, to: 12},
+            {from: 2, to: 13},
+            {from: 5, to: 13},
+            {from: 6, to: 13},
+            {from: 5, to: 14},
+            {from: 6, to: 14},
+            {from: 5, to: 15},
+            {from: 6, to: 15},
+            {from: 6, to: 16},
+            {from: 12, to: 16}
+        ];
+
+        // Create nodes with styling based on phase and complexity
+        const nodes = new vis.DataSet(tasks.map(task => ({
+            id: task.id,
+            label: task.label,
+            title: task.title,
+            group: task.group,
+            color: {
+                background: task.completed ? '#27ae60' :
+                           task.group === 1 ? '#ff6b6b' : 
+                           task.group === 2 ? '#4ecdc4' : 
+                           task.group === 3 ? '#45b7d1' : '#96ceb4',
+                border: task.completed ? '#1e8449' :
+                       task.complexity >= 8 ? '#2c3e50' : '#7f8c8d',
+                highlight: {
+                    background: task.completed ? '#2ecc71' :
+                               task.group === 1 ? '#ff5252' : 
+                               task.group === 2 ? '#26a69a' : 
+                               task.group === 3 ? '#29b6f6' : '#81c784',
+                    border: task.completed ? '#27ae60' : '#2c3e50'
+                }
+            },
+            borderWidth: task.complexity >= 8 ? 3 : 1,
+            borderWidthSelected: task.complexity >= 8 ? 4 : 2,
+            font: {
+                color: '#ffffff',
+                size: 14,
+                bold: {
+                    color: '#ffffff',
+                    size: 14
+                }
+            },
+            shape: 'box',
+            margin: 10,
+            physics: true,
+            mass: 2
+        })));
+
+        // Create edges
+        const edges = new vis.DataSet(dependencies.map(dep => ({
+            from: dep.from,
+            to: dep.to,
+            arrows: 'to',
+            dashes: true,
+            color: {
+                color: '#7f8c8d',
+                highlight: '#2c3e50',
+                hover: '#34495e'
+            },
+            width: 2,
+            smooth: {
+                enabled: true,
+                type: 'dynamic',
+                roundness: 0.5
+            }
+        })));
+
+        // Create network
+        const container = document.getElementById('mynetwork');
+        const data = {
+            nodes: nodes,
+            edges: edges
+        };
+        
+        const options = {
+            layout: {
+                hierarchical: {
+                    enabled: true,
+                    levelSeparation: 200,
+                    nodeSpacing: 150,
+                    treeSpacing: 200,
+                    blockShifting: true,
+                    edgeMinimization: true,
+                    parentCentralization: true,
+                    direction: 'UD',
+                    sortMethod: 'directed'
+                }
+            },
+            physics: {
+                enabled: false,
+                hierarchicalRepulsion: {
+                    centralGravity: 0.0,
+                    springLength: 100,
+                    springConstant: 0.01,
+                    nodeDistance: 120,
+                    damping: 0.09
+                },
+                stabilization: {
+                    iterations: 1000
+                }
+            },
+            interaction: {
+                hover: true,
+                tooltipDelay: 100,
+                zoomView: true,
+                dragView: true
+            },
+            nodes: {
+                shadow: {
+                    enabled: true,
+                    color: 'rgba(0,0,0,0.5)',
+                    size: 10,
+                    x: 5,
+                    y: 5
+                }
+            },
+            edges: {
+                shadow: false,
+                smooth: {
+                    enabled: true,
+                    type: 'cubicBezier',
+                    forceDirection: 'vertical',
+                    roundness: 0.4
+                }
+            }
+        };
+        
+        const network = new vis.Network(container, data, options);
+        
+        // Network control functions
+        function fitNetwork() {
+            network.fit({
+                animation: {
+                    duration: 1000,
+                    easingFunction: 'easeInOutQuad'
+                }
+            });
+        }
+        
+        let physicsEnabled = false;
+        function togglePhysics() {
+            physicsEnabled = !physicsEnabled;
+            network.setOptions({
+                physics: {
+                    enabled: physicsEnabled
+                }
+            });
+        }
+        
+        function showPhase(phase) {
+            // Update button states
+            document.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            if (phase === 0) {
+                document.getElementById('phaseAll').classList.add('active');
+                nodes.update(tasks.map(task => ({
+                    id: task.id,
+                    hidden: false
+                })));
+            } else {
+                document.getElementById('phase' + phase).classList.add('active');
+                nodes.update(tasks.map(task => ({
+                    id: task.id,
+                    hidden: task.phase !== phase
+                })));
+            }
+            
+            // Re-stabilize and fit
+            setTimeout(() => {
+                network.stabilize(100);
+                fitNetwork();
+            }, 100);
+        }
+        
+        // Add double-click event to show task details
+        network.on("doubleClick", function(params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                const task = tasks.find(t => t.id === nodeId);
+                if (task) {
+                    alert(`Task Details:\n\n${task.title}\n\nPhase: ${task.phase}\nPriority: ${task.priority}\n\nDouble-click to see more details in Task Master.`);
+                }
+            }
+        });
+        
+        // Initial fit
+        network.once('stabilized', function() {
+            fitNetwork();
+        });
+    </script>
+</body>
+</html>
