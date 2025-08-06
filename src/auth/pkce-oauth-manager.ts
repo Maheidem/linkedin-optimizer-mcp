@@ -257,11 +257,17 @@ export class PKCEOAuthManager {
       throw new Error('OAuth state has expired');
     }
     
+    // Ensure both buffers are the same length for timing-safe comparison
+    const stateBuffer = Buffer.from(state);
+    const expectedBuffer = Buffer.from(this.currentState.state);
+    
+    // If lengths don't match, it's definitely invalid
+    if (stateBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+    
     // Constant-time comparison to prevent timing attacks
-    return crypto.timingSafeEqual(
-      Buffer.from(state),
-      Buffer.from(this.currentState.state)
-    );
+    return crypto.timingSafeEqual(stateBuffer, expectedBuffer);
   }
 
   /**
@@ -303,7 +309,7 @@ export class PKCEOAuthManager {
         throw new Error(`Token exchange failed: ${response.status} - ${error}`);
       }
       
-      const tokenResponse: TokenResponse = await response.json();
+      const tokenResponse = await response.json() as TokenResponse;
       
       // Add created_at timestamp if not provided
       if (!tokenResponse.created_at) {
@@ -351,7 +357,7 @@ export class PKCEOAuthManager {
       throw new Error(`Token refresh failed: ${response.status} - ${error}`);
     }
     
-    const tokenResponse: TokenResponse = await response.json();
+    const tokenResponse = await response.json() as TokenResponse;
     
     // Add created_at timestamp
     if (!tokenResponse.created_at) {
@@ -378,7 +384,7 @@ export class PKCEOAuthManager {
     
     // Note: LinkedIn might not have a revocation endpoint
     // This is a standard OAuth 2.0 revocation implementation
-    const revokeUrl = this.config.tokenUrl.replace('/token', '/revoke');
+    const revokeUrl = this.config.tokenUrl.replace('/accessToken', '/revoke');
     
     try {
       const response = await fetch(revokeUrl, {
