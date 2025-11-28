@@ -41,6 +41,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const index_js_1 = require("@modelcontextprotocol/sdk/server/index.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const types_js_1 = require("@modelcontextprotocol/sdk/types.js");
+const http_1 = require("http");
+const child_process_1 = require("child_process");
+const simple_token_manager_js_1 = require("./simple-token-manager.js");
 const server = new index_js_1.Server({
     name: 'linkedin-complete-mcp',
     version: '1.0.0',
@@ -79,14 +82,26 @@ const COMPLETE_TOOLS = [
         }
     },
     {
+        name: 'linkedin_auto_auth',
+        description: 'Authenticate with LinkedIn - opens browser automatically, captures callback, saves token for future use',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                timeout: {
+                    type: 'number',
+                    description: 'Timeout in seconds (default: 120)'
+                }
+            }
+        }
+    },
+    {
         name: 'linkedin_get_user_info',
         description: 'Get user information via OpenID Connect',
         inputSchema: {
             type: 'object',
             properties: {
-                accessToken: { type: 'string', description: 'LinkedIn access token' }
-            },
-            required: ['accessToken']
+                accessToken: { type: 'string', description: 'LinkedIn access token (optional if previously authenticated)' }
+            }
         }
     },
     {
@@ -97,7 +112,7 @@ const COMPLETE_TOOLS = [
             properties: {
                 accessToken: {
                     type: 'string',
-                    description: 'LinkedIn access token'
+                    description: 'LinkedIn access token (optional if previously authenticated)'
                 },
                 text: {
                     type: 'string',
@@ -113,7 +128,7 @@ const COMPLETE_TOOLS = [
                     description: 'Optional: Local file path (/path/to/image.png) or URL (https://...)'
                 }
             },
-            required: ['accessToken', 'text']
+            required: ['text']
         }
     },
     {
@@ -122,7 +137,7 @@ const COMPLETE_TOOLS = [
         inputSchema: {
             type: 'object',
             properties: {
-                accessToken: { type: 'string', description: 'LinkedIn access token' },
+                accessToken: { type: 'string', description: 'LinkedIn access token (optional if previously authenticated)' },
                 updateType: {
                     type: 'string',
                     enum: ['new_role', 'skill_certification', 'achievement', 'general_update'],
@@ -130,7 +145,7 @@ const COMPLETE_TOOLS = [
                 },
                 details: { type: 'string', description: 'Details about the update' }
             },
-            required: ['accessToken', 'updateType', 'details']
+            required: ['updateType', 'details']
         }
     }
 ];
@@ -150,6 +165,9 @@ server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
                 break;
             case 'linkedin_exchange_code':
                 result = await exchangeCode(toolArgs);
+                break;
+            case 'linkedin_auto_auth':
+                result = await autoAuth(toolArgs);
                 break;
             case 'linkedin_get_user_info':
                 result = await getUserInfo(toolArgs);
@@ -182,6 +200,19 @@ server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
         throw new types_js_1.McpError(types_js_1.ErrorCode.InternalError, `Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 });
+/**
+ * Get access token - either from args (backward compatible) or from storage
+ */
+async function resolveAccessToken(providedToken) {
+    if (providedToken) {
+        return providedToken; // Use provided token (backward compatible)
+    }
+    const storedToken = await (0, simple_token_manager_js_1.getValidToken)();
+    if (storedToken) {
+        return storedToken;
+    }
+    throw new Error('No valid token available. Run linkedin_auto_auth first to authenticate.');
+}
 // Tool implementations
 function getAuthUrl(args) {
     const state = args.state || `state_${Date.now()}`;
@@ -242,15 +273,140 @@ async function exchangeCode(args) {
     if (!tokenData.access_token) {
         throw new Error(`Invalid token response: ${JSON.stringify(tokenData)}`);
     }
+    // Auto-save token for future use
+    const tokenToSave = {
+        access_token: tokenData.access_token,
+        expires_in: tokenData.expires_in,
+        created_at: Date.now(),
+        scope: tokenData.scope
+    };
+    await (0, simple_token_manager_js_1.saveToken)(tokenToSave);
+    console.error('DEBUG - Token auto-saved to ~/.linkedin-mcp/tokens/');
     const result = {
         access_token: tokenData.access_token,
         expires_in: tokenData.expires_in,
         scope: tokenData.scope,
-        message: 'Token obtained successfully! You can now create LinkedIn posts!',
-        expiresAt: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString()
+        message: 'Token obtained successfully and saved! You can now create LinkedIn posts without passing token!',
+        expiresAt: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+        tokenSaved: true
     };
     console.error('DEBUG - Final result:', JSON.stringify(result, null, 2));
     return result;
+}
+/**
+ * Auto-authenticate: opens browser, starts callback server, exchanges code, saves token
+ */
+async function autoAuth(args) {
+    const timeout = (args.timeout || 120) * 1000; // Default 2 minutes
+    const state = `state_${Date.now()}`;
+    // Generate auth URL
+    const scopes = ['openid', 'profile', 'email', 'w_member_social'];
+    const authUrl = new URL('https://www.linkedin.com/oauth/v2/authorization');
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('client_id', config.clientId);
+    authUrl.searchParams.set('redirect_uri', config.redirectUri);
+    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('scope', scopes.join(' '));
+    return new Promise((resolve, reject) => {
+        let server;
+        let timeoutId;
+        // Create HTTP server to capture callback
+        server = (0, http_1.createServer)(async (req, res) => {
+            const url = new URL(req.url || '', `http://localhost:3000`);
+            if (url.pathname === '/callback') {
+                const code = url.searchParams.get('code');
+                const returnedState = url.searchParams.get('state');
+                const error = url.searchParams.get('error');
+                if (error) {
+                    res.writeHead(400, { 'Content-Type': 'text/html' });
+                    res.end('<h1>Authorization Failed</h1><p>Error: ' + error + '</p><p>You can close this window.</p>');
+                    clearTimeout(timeoutId);
+                    server.close();
+                    reject(new Error(`LinkedIn authorization failed: ${error}`));
+                    return;
+                }
+                if (!code) {
+                    res.writeHead(400, { 'Content-Type': 'text/html' });
+                    res.end('<h1>Missing Code</h1><p>No authorization code received.</p>');
+                    return;
+                }
+                if (returnedState !== state) {
+                    res.writeHead(400, { 'Content-Type': 'text/html' });
+                    res.end('<h1>State Mismatch</h1><p>Security check failed.</p>');
+                    return;
+                }
+                try {
+                    // Exchange code for token
+                    const tokenResult = await exchangeCode({ code });
+                    if (tokenResult.error) {
+                        res.writeHead(500, { 'Content-Type': 'text/html' });
+                        res.end('<h1>Token Exchange Failed</h1><p>' + tokenResult.message + '</p>');
+                        clearTimeout(timeoutId);
+                        server.close();
+                        reject(new Error(tokenResult.message));
+                        return;
+                    }
+                    // Token already saved in exchangeCode, but we have a nice success page
+                    // Success response
+                    res.writeHead(200, { 'Content-Type': 'text/html' });
+                    res.end(`
+            <html>
+              <head><title>LinkedIn Authentication Success</title></head>
+              <body style="font-family: system-ui; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: linear-gradient(135deg, #0077B5, #00A0DC);">
+                <div style="background: white; padding: 40px; border-radius: 12px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                  <h1 style="color: #0077B5; margin-bottom: 10px;">Authentication Successful!</h1>
+                  <p style="color: #666;">Token saved. You can close this window.</p>
+                  <p style="color: #999; font-size: 14px;">Token expires: ${tokenResult.expiresAt}</p>
+                </div>
+              </body>
+            </html>
+          `);
+                    clearTimeout(timeoutId);
+                    server.close();
+                    resolve({
+                        success: true,
+                        message: 'LinkedIn authentication successful! Token saved for future use.',
+                        expiresAt: tokenResult.expiresAt,
+                        scope: tokenResult.scope,
+                        note: 'You can now use linkedin_create_post and other tools without providing accessToken!'
+                    });
+                }
+                catch (err) {
+                    res.writeHead(500, { 'Content-Type': 'text/html' });
+                    res.end('<h1>Error</h1><p>' + (err instanceof Error ? err.message : 'Unknown error') + '</p>');
+                    clearTimeout(timeoutId);
+                    server.close();
+                    reject(err);
+                }
+            }
+        });
+        // Start server
+        server.listen(3000, () => {
+            console.error('Callback server started on port 3000');
+            // Open browser automatically (macOS)
+            const openCommand = process.platform === 'darwin' ? 'open' :
+                process.platform === 'win32' ? 'start' : 'xdg-open';
+            (0, child_process_1.exec)(`${openCommand} "${authUrl.toString()}"`, (err) => {
+                if (err) {
+                    console.error('Could not open browser automatically:', err.message);
+                }
+            });
+        });
+        // Timeout handler
+        timeoutId = setTimeout(() => {
+            server.close();
+            reject(new Error(`Authentication timed out after ${timeout / 1000} seconds. Try again with linkedin_auto_auth.`));
+        }, timeout);
+        server.on('error', (err) => {
+            clearTimeout(timeoutId);
+            if (err.code === 'EADDRINUSE') {
+                reject(new Error('Port 3000 is already in use. Please close any other servers on port 3000 and try again.'));
+            }
+            else {
+                reject(err);
+            }
+        });
+    });
 }
 // Image upload helper functions
 function isUrl(str) {
@@ -317,7 +473,7 @@ async function uploadImageBinary(uploadUrl, buffer, mimeType) {
     }
 }
 async function getUserInfo(args) {
-    const { accessToken } = args;
+    const accessToken = await resolveAccessToken(args.accessToken);
     const response = await fetch('https://api.linkedin.com/v2/userinfo', {
         headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -342,7 +498,8 @@ async function getUserInfo(args) {
     };
 }
 async function createPost(args) {
-    const { accessToken, text, visibility = 'PUBLIC', image } = args;
+    const accessToken = await resolveAccessToken(args.accessToken);
+    const { text, visibility = 'PUBLIC', image } = args;
     // Get user ID first
     const userResponse = await fetch('https://api.linkedin.com/v2/userinfo', {
         headers: {
@@ -418,7 +575,8 @@ async function createPost(args) {
     };
 }
 async function postProfileUpdate(args) {
-    const { accessToken, updateType, details } = args;
+    const accessToken = await resolveAccessToken(args.accessToken);
+    const { updateType, details } = args;
     const updateMessages = {
         new_role: `🚀 Excited to share that I've started a new role! ${details}`,
         skill_certification: `📜 Just earned a new certification! ${details}. Always learning and growing in this ever-evolving field.`,
@@ -437,6 +595,17 @@ async function main() {
     const transport = new stdio_js_1.StdioServerTransport();
     await server.connect(transport);
     console.error('LinkedIn Complete MCP server running on stdio');
+    // Check for existing token at startup
+    const tokenInfo = await (0, simple_token_manager_js_1.getTokenInfo)();
+    if (tokenInfo && tokenInfo.valid) {
+        console.error(`LinkedIn token loaded (expires: ${tokenInfo.expiresAt}, ${tokenInfo.remainingDays} days remaining)`);
+    }
+    else if (tokenInfo && !tokenInfo.valid) {
+        console.error('LinkedIn token expired. Use linkedin_auto_auth to re-authenticate.');
+    }
+    else {
+        console.error('No LinkedIn token found. Use linkedin_auto_auth to authenticate.');
+    }
 }
 main().catch((error) => {
     console.error('Fatal error:', error);

@@ -1,6 +1,6 @@
 {
   "name": "@maheidem/linkedin-mcp",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Comprehensive LinkedIn API MCP server with automatic Claude configuration",
   "main": "dist/linkedin-complete-mcp.js",
   "bin": {
